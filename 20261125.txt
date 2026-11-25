@@ -18,3 +18,43 @@ Momentary Footswitch (8 Adet — halihazırda mevcut)
 Timsah Ağızlı Krokodil Kablo Seti (1 Set)
 USB Dişi Tip A DIP Dönüştürücü (1 Adet — opsiyonel)
 Pedal Kutusu, Delikli Plaket (Pertinaks) ve İnce Kablo (Kutu içi montaj için)
+
+
+
+KABLOLU VE KABLOSUZ BAGLANTI OZETI
+
+Kablolu baglantilar:
+
+* 3.5mm TRS (Tip-A) donanimsal MIDI cikisi ile Fractal AM4 ve Neural DSP Nano Cortex gibi cihazlara kablo uzerinden MIDI CC/PC mesajlari gonderilir.
+* USB kablo ile bilgisayara veya iPad'e baglandiginda sinif uyumlu USB MIDI sinyali iletilir.
+* USB ag arayuzu uzerinden (ornegin [http://192.168.7.1](https://www.google.com/search?q=http://192.168.7.1)) tarayici acilarak ESP32-S3'teki LittleFS icinde duran HTML ayar paneline ulasilir.
+
+Kablosuz baglantilar:
+
+* Dahili Bluetooth LE (BLE MIDI) sayesinde iPhone, iPad (GarageBand, AUM, Loopy vb.) ve bilgisayarlara kablosuz MIDI gonderilir.
+* ESP32-S3'un Wi-Fi erisim noktasi (AP) veya ag baglantisi uzerinden (ornegin [http://192.168.4.1](https://www.google.com/search?q=http://192.168.4.1)) telefon, tablet veya bilgisayardan tarayici ile HTML ayar paneline kablosuz baglanilir.
+* Istenirse ayar modu acilista belirli bir footswitch ile tetiklenerek sahnede guc ve kablosuz parazit kontrolu saglanir.
+
+AYARLARI GORME, SIMULE ETME, DEGISTIRME VE KAYDETME YAPISI
+
+Gorme:
+
+* Tarayicida acilan HTML arayuzu, sayfa acildiginda ESP32-S3 uzerindeki GET /api/config ucundan mevcut ayar verisini ceker ve 8 footswitch karti ile sanal pedal barinda gosterir.
+* Dikey iPhone ekranina da sigacak sekilde olceklenen 32x8 (4 adet pespese MAX7219 modul) LED izgarasi mevcut ekran gorunumunu ve parlaklik/renk simulesini gosterir.
+
+Simule etme:
+
+* Sanal pedallara tiklayarak, ayar kartlarindaki test butonlarina basarak veya klavyede 1-8 tuslarini kullanarak footswitch tetiklemesi simule edilir.
+* Tetiklenen anahtara gore 32x8 ekranda sabit yazi veya otomatik kayan yazi calisir; o an uretilen hedef cihaz, kanal, mesaj tipi (CC/PC) ve numara bilgisi log satirinda gorunur.
+* LED izgara uzerinde fare veya dokunmatik ekranla tiklayip surukleyerek serbest piksel cizimi yapilir, temizlenir, ters cevrilir ve istenirse 32 baytlik C++ byte dizisi olarak kopyalanir.
+
+Degistirme:
+
+* Her footswitch icin ekran etiketi, hedef cihaz (Fractal AM4, Nano Cortex, Ableton Live), mesaj tipi (CC/PC), MIDI kanali (1-16) ve CC/Program numarasi (0-127) arayuz uzerinden anlik degistirilir.
+* Ekran simulatorunde ozel metin girilebilir, kayan yazi acilip kapatilabilir ve parlaklik ayari test edilir.
+
+Kaydetme:
+
+* Kaydet butonuna basildiginda guncel ayarlar tarayici yerel hafizasina yazilir ve ayni anda POST /api/config uzerinden JSON olarak ESP32-S3'e gonderilir.
+* ESP32-S3 gelen JSON verisini Preferences (NVS) kalici bellegine yazar; boylece kablo cekilse veya guc kesilse bile ayarlar silinmez ve bir sonraki acilista geri yuklenir.
+* Ayarlar ayrica JSON dosyasi olarak disa aktarilabilir veya varsayilan ayarlara sifirlanabilir.
