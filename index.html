@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>8-FS MIDI Kontrolcü & 32×8 LED Ekran Simülatörü</title>
+  <style>
+    :root {
+      --bg: #0f1115;
+      --panel: #181b22;
+      --panel-2: #20242e;
+      --border: #2c313d;
+      --text: #eef1f6;
+      --muted: #9aa3b2;
+      --led-color: #ff3b3b;
+      --led-off: #221416;
+      --ok: #2ecc71;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 20px;
+      user-select: none;
+    }
+
+    .container {
+      max-width: 1160px;
+      margin: 0 auto;
+    }
+
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    h1 {
+      font-size: 1.35rem;
+      margin: 0;
+    }
+
+    .sub {
+      color: var(--muted);
+      font-size: 0.88rem;
+      margin-top: 3px;
+    }
+
+    .toolbar, .sim-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    button {
+      background: var(--panel-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 8px 13px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.85rem;
+      transition: 0.15s ease;
+    }
+
+    button:hover {
+      border-color: #4b5366;
+      background: #272c38;
+    }
+
+    button.primary {
+      background: #e63946;
+      border-color: #e63946;
+      color: #fff;
+    }
+
+    button.primary:hover {
+      background: #d62839;
+    }
+
+    button.active-toggle {
+      border-color: var(--ok);
+      color: var(--ok);
+    }
+
+    .matrix-box {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+      margin-bottom: 20px;
+    }
+
+    .matrix-top {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .matrix-scroll {
+      overflow-x: auto;
+      padding: 8px 0;
+      display: flex;
+      justify-content: center;
+    }
+
+    /* 4 adet 8x8 modülün fiziksel ayrım çizgileriyle birlikte 32x8 görünümü */
+    .matrix-chassis {
+      background: #08090c;
+      padding: 14px;
+      border-radius: 10px;
+      border: 2px solid #2b303c;
+      box-shadow: inset 0 0 22px rgba(0, 0, 0, 0.85);
+      display: inline-block;
+    }
+
+    .matrix-board {
+      display: grid;
+      grid-template-columns: repeat(32, 16px);
+      gap: 4px;
+    }
+
+    /* Her 8 sütunda bir modül sınırını hafifçe belli et */
+    .led {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--led-off);
+      cursor: crosshair;
+      transition: background 0.05s ease, box-shadow 0.05s ease;
+    }
+
+    .led.mod-edge {
+      margin-right: 4px;
+    }
+
+    .led.on {
+      background: var(--led-color);
+      box-shadow: 0 0 9px var(--led-color);
+    }
+
+    .sim-bar {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+      font-size: 0.84rem;
+      color: var(--muted);
+    }
+
+    .sim-group {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .grid-8 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 14px;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .card.active {
+      border-color: var(--led-color);
+      box-shadow: 0 0 0 1px rgba(255, 59, 59, 0.25);
+    }
+
+    .card-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .fs-badge {
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: #ff8585;
+    }
+
+    .gpio-tag {
+      font-size: 0.76rem;
+      color: var(--muted);
+      background: var(--panel-2);
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+    }
+
+    label {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 0.79rem;
+      color: var(--muted);
+    }
+
+    input[type="text"], input[type="number"], select {
+      background: var(--panel-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 7px 9px;
+      font-size: 0.86rem;
+    }
+
+    input[type="range"] {
+      accent-color: #e63946;
+      cursor: pointer;
+    }
+
+    .row-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .card-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 2px;
+    }
+
+    .card-actions button {
+      flex: 1;
+      padding: 7px 10px;
+      font-size: 0.82rem;
+    }
+
+    .pedal-bar {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      gap: 8px;
+      margin-bottom: 18px;
+    }
+
+    .stomp-btn {
+      background: #1d212b;
+      border: 2px solid #353b4a;
+      border-radius: 10px;
+      padding: 10px 6px;
+      text-align: center;
+      cursor: pointer;
+    }
+
+    .stomp-btn:active, .stomp-btn.pressed {
+      transform: translateY(2px);
+      border-color: var(--led-color);
+      background: #272228;
+    }
+
+    .stomp-cap {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      margin: 0 auto 6px;
+      background: radial-gradient(circle at 35% 35%, #e5e9f0, #7b8494);
+      border: 2px solid #49505e;
+    }
+
+    .stomp-label {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .status-bar {
+      margin-top: 16px;
+      font-size: 0.85rem;
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .ok-text {
+      color: var(--ok);
+      font-weight: 600;
+    }
+
+    @media (max-width: 720px) {
+      .pedal-bar {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <h1>8-Footswitch MIDI Kontrolcü & 32×8 Ekran Simülatörü</h1>
+        <div class="sub">4× MAX7219 (128×32 mm) Gerçek Oranlı LED Simülatörü + MIDI CC/PC Programlayıcı</div>
+      </div>
+      <div class="toolbar">
+        <button id="saveBtn" class="primary">Ayarları Kaydet</button>
+        <button id="exportBtn">JSON İndir</button>
+        <button id="copyBytesBtn">C++ Ekran Kodunu Kopyala</button>
+        <button id="resetBtn">Sıfırla</button>
+      </div>
+    </header>
+
+    <!-- 32x8 LED EKRAN SİMÜLATÖRÜ -->
+    <section class="matrix-box">
+      <div class="matrix-top">
+        <div>
+          <strong>32×8 Dot Matrix Canlı Simülatör</strong>
+          <div class="sub" id="activePreviewInfo">İpucu: Aşağıdaki pedal butonlarına basabilir veya LED'lerin üzerine tıklayarak çizim yapabilirsin.</div>
+        </div>
+        <div class="sim-controls">
+          <input id="customScreenText" type="text" maxlength="24" placeholder="Metin yaz (örn: AM4 LEAD)" style="width:195px;" />
+          <button id="sendCustomTextBtn">Yazdır</button>
+          <button id="scrollToggleBtn">Kayan Yazı: Kapalı</button>
+        </div>
+      </div>
+
+      <div class="matrix-scroll">
+        <div class="matrix-chassis">
+          <div id="matrixBoard" class="matrix-board" aria-label="32x8 LED ekran simülasyonu"></div>
+        </div>
+      </div>
+
+      <div class="sim-bar">
+        <div class="sim-group">
+          <button id="clearMatrixBtn">Ekranı Temizle</button>
+          <button id="invertMatrixBtn">Ters Çevir</button>
+          <button id="testPatternBtn">Tüm LED Testi</button>
+        </div>
+
+        <div class="sim-group">
+          <label style="flex-direction:row; align-items:center; gap:6px;">
+            Parlaklık (0–15):
+            <input id="brightnessRange" type="range" min="1" max="15" value="12" style="width:90px;" />
+          </label>
+          <label style="flex-direction:row; align-items:center; gap:6px;">
+            LED Rengi:
+            <select id="ledColorSelect">
+              <option value="#ff3b3b|#221416" selected>Kırmızı (Standart MAX7219)</option>
+              <option value="#2ecc71|#112218">Yeşil</option>
+              <option value="#ffaa00|#241d11">Amber / Sarı</option>
+              <option value="#38bdf8|#111d24">Mavi</option>
+            </select>
+          </label>
+        </div>
+      </div>
+    </section>
+
+    <!-- SANAL FOOTSWITCH PEDAL BARI -->
+    <section class="pedal-bar" id="pedalBar"></section>
+
+    <!-- 8 FOOTSWITCH AYAR KARTLARI -->
+    <section id="switchesGrid" class="grid-8"></section>
+
+    <div class="status-bar">
+      <span id="lastMidiLog">Son MIDI mesajı: Henüz tetiklenmedi</span>
+      <span id="saveStatus" class="ok-text"></span>
+    </div>
+  </div>
+
+  <script>
+    const FONT_5X7 = {
+      "A": ["01110","10001","10001","11111","10001","10001","10001"],
+      "B": ["11110","10001","10001","11110","10001","10001","11110"],
+      "C": ["01111","10000","10000","10000","10000","10000","01111"],
+      "D": ["11110","10001","10001","10001","10001","10001","11110"],
+      "E": ["11111","10000","10000","11110","10000","10000","11111"],
+      "F": ["11111","10000","10000","11110","10000","10000","10000"],
+      "G": ["01111","10000","10000","10111","10001","10001","01111"],
+      "H": ["10001","10001","10001","11111","10001","10001","10001"],
+      "I": ["11111","00100","00100","00100","00100","00100","11111"],
+      "J": ["00111","00010","00010","00010","10010","10010","01100"],
+      "K": ["10001","10010","10100","11000","10100","10010","10001"],
+      "L": ["10000","10000","10000","10000","10000","10000","11111"],
+      "M": ["10001","11011","10101","10101","10001","10001","10001"],
+      "N": ["10001","11001","10101","10011","10001","10001","10001"],
+      "O": ["01110","10001","10001","10001","10001","10001","01110"],
+      "P": ["11110","10001","10001","11110","10000","10000","10000"],
+      "Q": ["01110","10001","10001","10001","10101","10010","01101"],
+      "R": ["11110","10001","10001","11110","10100","10010","10001"],
+      "S": ["01111","10000","10000","01110","00001","00001","11110"],
+      "T": ["11111","00100","00100","00100","00100","00100","00100"],
+      "U": ["10001","10001","10001","10001","10001","10001","01110"],
+      "V": ["10001","10001","10001","10001","10001","01010","00100"],
+      "W": ["10001","10001","10001","10101","10101","11011","10001"],
+      "X": ["10001","10001","01010","00100","01010","10001","10001"],
+      "Y": ["10001","10001","01010","00100","00100","00100","00100"],
+      "Z": ["11111","00001","00010","00100","01000","10000","11111"],
+      "0": ["01110","10011","10101","10101","11001","10001","01110"],
+      "1": ["00100","01100","00100","00100","00100","00100","01110"],
+      "2": ["01110","10001","00001","00110","01000","10000","11111"],
+      "3": ["11110","00001","00001","01110","00001","00001","11110"],
+      "4": ["00010","00110","01010","10010","11111","00010","00010"],
+      "5": ["11111","10000","11110","00001","00001","10001","01110"],
+      "6": ["01110","10000","11110","10001","10001","10001","01110"],
+      "7": ["11111","00001","00010","00100","01000","01000","01000"],
+      "8": ["01110","10001","10001","01110","10001","10001","01110"],
+      "9": ["01110","10001","10001","01111","00001","00001","01110"],
+      "-": ["00000","00000","00000","11111","00000","00000","00000"],
+      "+": ["00000","00100","00100","11111","00100","00100","00000"],
+      "/": ["00001","00010","00100","01000","10000","00000","00000"],
+      ":": ["00000","00100","00100","00000","00100","00100","00000"],
+      "!": ["00100","00100","00100","00100","00100","00000","00100"],
+      " ": ["00000","00000","00000","00000","00000","00000","00000"]
+    };
+
+    const DEFAULT_CONFIG = [
+      { id: 1, gpio: "GPIO 1", label: "CLEAN",  target: "AM4",     type: "CC", channel: 1, number: 10, value: 127 },
+      { id: 2, gpio: "GPIO 2", label: "DRIVE",  target: "AM4",     type: "CC", channel: 1, number: 11, value: 127 },
+      { id: 3, gpio: "GPIO 3", label: "LEAD",   target: "AM4",     type: "CC", channel: 1, number: 12, value: 127 },
+      { id: 4, gpio: "GPIO 4", label: "SOLO",   target: "AM4",     type: "CC", channel: 1, number: 13, value: 127 },
+      { id: 5, gpio: "GPIO 5", label: "NANO 1", target: "NANO",    type: "PC", channel: 2, number: 0,  value: 127 },
+      { id: 6, gpio: "GPIO 6", label: "NANO 2", target: "NANO",    type: "PC", channel: 2, number: 1,  value: 127 },
+      { id: 7, gpio: "GPIO 7", label: "LOOP",   target: "ABLETON", type: "CC", channel: 3, number: 20, value: 127 },
+      { id: 8, gpio: "GPIO 8", label: "TAP",    target: "ABLETON", type: "CC", channel: 3, number: 21, value: 127 }
+    ];
+
+    const STORAGE_KEY = "esp32s3_8fs_midi_sim_v2";
+    let config = loadConfig();
+    let activeSwitchId = 1;
+
+    // 32x8 piksel tampon belleği
+    let frameBuffer = Array.from({ length: 8 }, () => Array(32).fill(false));
+    let isDrawing = false;
+    let drawState = true;
+    let scrollTimer = null;
+    let scrollText = "CLEAN";
+    let scrollOffset = 0;
+
+    function loadConfig() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) return JSON.parse(raw);
+      } catch (_) {}
+      return structuredClone(DEFAULT_CONFIG);
+    }
+
+    function saveConfig(showMsg = true) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+      if (showMsg) {
+        document.getElementById("saveStatus").textContent =
+          "Kaydedildi (" + new Date().toLocaleTimeString("tr-TR") + ")";
+      }
+    }
+
+    // 32x8 LED matrisi oluştur ve fare ile çizim olaylarını bağla
+    const matrixBoard = document.getElementById("matrixBoard");
+    const leds = [];
+
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 32; c++) {
+        const dot = document.createElement("div");
+        dot.className = "led" + ((c === 7 || c === 15 || c === 23) ? " mod-edge" : "");
+        dot.dataset.r = r;
+        dot.dataset.c = c;
+
+        dot.addEventListener("mousedown", (e) => {
+          e.preventDefault();
+          stopScroll();
+          isDrawing = true;
+          drawState = !frameBuffer[r][c];
+          frameBuffer[r][c] = drawState;
+          syncBufferToDom();
+        });
+
+        dot.addEventListener("mouseenter", () => {
+          if (!isDrawing) return;
+          frameBuffer[r][c] = drawState;
+          syncBufferToDom();
+        });
+
+        matrixBoard.appendChild(dot);
+        leds.push(dot);
+      }
+    }
+
+    window.addEventListener("mouseup", () => { isDrawing = false; });
+
+    function syncBufferToDom() {
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 32; c++) {
+          leds[r * 32 + c].classList.toggle("on", frameBuffer[r][c]);
+        }
+      }
+    }
+
+    function textToColumns(text) {
+      const clean = (text || "").toUpperCase();
+      const cols = [];
+      for (const ch of clean) {
+        const glyph = FONT_5X7[ch] || FONT_5X7[" "];
+        for (let col = 0; col < 5; col++) {
+          const columnBits = [false];
+          for (let row = 0; row < 7; row++) {
+            columnBits.push(glyph[row][col] === "1");
+          }
+          cols.push(columnBits);
+        }
+        cols.push(Array(8).fill(false)); // karakter arası 1 piksel boşluk
+      }
+      return cols;
+    }
+
+    function renderStaticText(text) {
+      stopScroll();
+      scrollText = (text || "").toUpperCase();
+      frameBuffer = Array.from({ length: 8 }, () => Array(32).fill(false));
+
+      const cols = textToColumns(scrollText);
+      // 32 sütuna sığıyorsa ortala, taşarsa soldan başlat
+      const startX = cols.length <= 32 ? Math.floor((32 - cols.length) / 2) : 0;
+
+      for (let c = 0; c < cols.length && (startX + c) < 32; c++) {
+        for (let r = 0; r < 8; r++) {
+          frameBuffer[r][startX + c] = cols[c][r];
+        }
+      }
+      syncBufferToDom();
+    }
+
+    function startScroll(text) {
+      stopScroll();
+      scrollText = (text || "MIDI CONTROLLER").toUpperCase();
+      const baseCols = textToColumns(scrollText + "   ");
+      if (baseCols.length === 0) return;
+
+      scrollOffset = 0;
+      const btn = document.getElementById("scrollToggleBtn");
+      btn.textContent = "Kayan Yazı: Açık";
+      btn.classList.add("active-toggle");
+
+      scrollTimer = setInterval(() => {
+        for (let c = 0; c < 32; c++) {
+          const srcCol = baseCols[(scrollOffset + c) % baseCols.length];
+          for (let r = 0; r < 8; r++) {
+            frameBuffer[r][c] = srcCol[r];
+          }
+        }
+        syncBufferToDom();
+        scrollOffset = (scrollOffset + 1) % baseCols.length;
+      }, 95);
+    }
+
+    function stopScroll() {
+      if (scrollTimer) {
+        clearInterval(scrollTimer);
+        scrollTimer = null;
+      }
+      const btn = document.getElementById("scrollToggleBtn");
+      btn.textContent = "Kayan Yazı: Kapalı";
+      btn.classList.remove("active-toggle");
+    }
+
+    function triggerSwitch(sw) {
+      activeSwitchId = sw.id;
+      document.querySelectorAll(".card").forEach(card => {
+        card.classList.toggle("active", Number(card.dataset.id) === sw.id);
+      });
+
+      const stomp = document.querySelector(`.stomp-btn[data-id="${sw.id}"]`);
+      if (stomp) {
+        stomp.classList.add("pressed");
+        setTimeout(() => stomp.classList.remove("pressed"), 140);
+      }
+
+      if (sw.label.length > 5) {
+        startScroll(sw.label);
+      } else {
+        renderStaticText(sw.label);
+      }
+
+      document.getElementById("activePreviewInfo").textContent =
+        `Aktif: FS${sw.id} (${sw.gpio}) → Ekranda "${sw.label}" gösteriliyor`;
+      document.getElementById("lastMidiLog").textContent =
+        `Son MIDI mesajı: [${sw.target}] Ch ${sw.channel} • ${sw.type} #${sw.number} (Val: ${sw.value})`;
+    }
+
+    function renderPedalBar() {
+      const bar = document.getElementById("pedalBar");
+      bar.innerHTML = "";
+      config.forEach(sw => {
+        const btn = document.createElement("div");
+        btn.className = "stomp-btn";
+        btn.dataset.id = sw.id;
+        btn.innerHTML = `
+          <div class="stomp-cap"></div>
+          <div class="stomp-label">FS${sw.id}: ${sw.label}</div>
+        `;
+        btn.addEventListener("click", () => triggerSwitch(sw));
+        bar.appendChild(btn);
+      });
+    }
+
+    function renderGrid() {
+      const grid = document.getElementById("switchesGrid");
+      grid.innerHTML = "";
+
+      config.forEach(sw => {
+        const card = document.createElement("div");
+        card.className = "card" + (sw.id === activeSwitchId ? " active" : "");
+        card.dataset.id = sw.id;
+
+        card.innerHTML = `
+          <div class="card-head">
+            <span class="fs-badge">FOOTSWITCH ${sw.id}</span>
+            <span class="gpio-tag">${sw.gpio}</span>
+          </div>
+
+          <label>
+            Ekran Etiketi (5+ karakter otomatik kayar)
+            <input type="text" maxlength="16" data-field="label" value="${sw.label}" />
+          </label>
+
+          <div class="row-2">
+            <label>
+              Hedef Cihaz
+              <select data-field="target">
+                <option value="AM4" ${sw.target === "AM4" ? "selected" : ""}>Fractal AM4</option>
+                <option value="NANO" ${sw.target === "NANO" ? "selected" : ""}>Nano Cortex</option>
+                <option value="ABLETON" ${sw.target === "ABLETON" ? "selected" : ""}>Ableton Live</option>
+              </select>
+            </label>
+
+            <label>
+              Mesaj Tipi
+              <select data-field="type">
+                <option value="CC" ${sw.type === "CC" ? "selected" : ""}>MIDI CC</option>
+                <option value="PC" ${sw.type === "PC" ? "selected" : ""}>MIDI PC</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="row-2">
+            <label>
+              Kanal (1–16)
+              <input type="number" min="1" max="16" data-field="channel" value="${sw.channel}" />
+            </label>
+
+            <label>
+              ${sw.type === "PC" ? "Program No (0–127)" : "CC No (0–127)"}
+              <input type="number" min="0" max="127" data-field="number" value="${sw.number}" />
+            </label>
+          </div>
+
+          <div class="card-actions">
+            <button type="button" class="test-btn">Pedala Bas (Test)</button>
+          </div>
+        `;
+
+        card.querySelectorAll("[data-field]").forEach(input => {
+          input.addEventListener("input", () => {
+            const field = input.dataset.field;
+            if (field === "label") {
+              sw.label = input.value.toUpperCase();
+              input.value = sw.label;
+              renderPedalBar();
+              if (sw.id === activeSwitchId) triggerSwitch(sw);
+            } else if (field === "channel") {
+              sw.channel = Math.min(16, Math.max(1, Number(input.value) || 1));
+            } else if (field === "number") {
+              sw.number = Math.min(127, Math.max(0, Number(input.value) || 0));
+            } else {
+              sw[field] = input.value;
+            }
+            if (field === "type") renderGrid();
+          });
+        });
+
+        card.querySelector(".test-btn").addEventListener("click", () => triggerSwitch(sw));
+        grid.appendChild(card);
+      });
+    }
+
+    // Simülatör araç çubuğu kontrolleri
+    document.getElementById("sendCustomTextBtn").addEventListener("click", () => {
+      const txt = document.getElementById("customScreenText").value || "HELLO";
+      if (txt.length > 5) startScroll(txt);
+      else renderStaticText(txt);
+    });
+
+    document.getElementById("scrollToggleBtn").addEventListener("click", () => {
+      if (scrollTimer) {
+        renderStaticText(scrollText);
+      } else {
+        const txt = document.getElementById("customScreenText").value || scrollText || "AM4 MIDI";
+        startScroll(txt);
+      }
+    });
+
+    document.getElementById("clearMatrixBtn").addEventListener("click", () => {
+      stopScroll();
+      frameBuffer = Array.from({ length: 8 }, () => Array(32).fill(false));
+      syncBufferToDom();
+    });
+
+    document.getElementById("invertMatrixBtn").addEventListener("click", () => {
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 32; c++) {
+          frameBuffer[r][c] = !frameBuffer[r][c];
+        }
+      }
+      syncBufferToDom();
+    });
+
+    document.getElementById("testPatternBtn").addEventListener("click", () => {
+      stopScroll();
+      frameBuffer = Array.from({ length: 8 }, () => Array(32).fill(true));
+      syncBufferToDom();
+    });
+
+    document.getElementById("brightnessRange").addEventListener("input", (e) => {
+      const val = Number(e.target.value);
+      matrixBoard.style.opacity = (0.35 + (val / 15) * 0.65).toFixed(2);
+    });
+
+    document.getElementById("ledColorSelect").addEventListener("change", (e) => {
+      const [onColor, offColor] = e.target.value.split("|");
+      document.documentElement.style.setProperty("--led-color", onColor);
+      document.documentElement.style.setProperty("--led-off", offColor);
+    });
+
+    document.getElementById("copyBytesBtn").addEventListener("click", async () => {
+      const bytes = [];
+      for (let c = 0; c < 32; c++) {
+        let colByte = 0;
+        for (let r = 0; r < 8; r++) {
+          if (frameBuffer[r][c]) colByte |= (1 << r);
+        }
+        bytes.push("0x" + colByte.toString(16).padStart(2, "0").toUpperCase());
+      }
+      const snippet = `const uint8_t customFrame[32] = { ${bytes.join(", ")} };`;
+      try {
+        await navigator.clipboard.writeText(snippet);
+        document.getElementById("saveStatus").textContent = "32 byte'lık C++ ekran dizisi panoya kopyalandı!";
+      } catch (_) {
+        prompt("C++ dizisini buradan kopyalayabilirsin:", snippet);
+      }
+    });
+
+    document.getElementById("saveBtn").addEventListener("click", () => saveConfig(true));
+
+    document.getElementById("exportBtn").addEventListener("click", () => {
+      const blob = new Blob([JSON.stringify(config, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "midi-footswitch-config.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    document.getElementById("resetBtn").addEventListener("click", () => {
+      config = structuredClone(DEFAULT_CONFIG);
+      saveConfig(false);
+      renderPedalBar();
+      renderGrid();
+      triggerSwitch(config[0]);
+      document.getElementById("saveStatus").textContent = "Varsayılan ayarlara dönüldü.";
+    });
+
+    // Klavye kısayolları: 1-8 tuşları ile fiziksel footswitch testi
+    window.addEventListener("keydown", (e) => {
+      if (["INPUT", "SELECT"].includes(document.activeElement.tagName)) return;
+      const idx = Number(e.key) - 1;
+      if (idx >= 0 && idx < 8) {
+        triggerSwitch(config[idx]);
+      }
+    });
+
+    renderPedalBar();
+    renderGrid();
+    triggerSwitch(config[0]);
+  </script>
+</body>
+</html>
