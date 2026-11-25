@@ -1,0 +1,20 @@
+Projenin Amacı ve Çalışma Mantığı
+* Hedef Cihazlar: Fractal AM4, Neural DSP Nano Cortex ve Ableton Live.
+* Kontrol Protokolü: MIDI CC ve PC mesajları (hem USB üzerinden sınıf uyumlu MIDI hem de 3.5mm TRS donanımsal MIDI çıkışı).
+* Kullanıcı Girişi: 8 adet momentary (anlık basmalı) footswitch.
+* Görsel Geri Bildirim: 4 adet 8×8 MAX7219 LED matrisin yan yana birleştirilmesiyle oluşan 32×8 yatay ekran(kısa etiketler, kayan yazılar ve durum göstergeleri).
+* Programlama Arayüzü: ESP32-S3 üzerinden erişilebilen HTML tabanlı web arayüzü ile ekran metin/görselleri ve MIDI atamalarının ayarlanması.
+
+
+
+ESP32-S3 Mini Geliştirme Kartı (1 Adet)
+8x8 Dot Matrix Kartı — MAX7219, Peşpeşe Takılabilir (4 Adet)
+Momentary Footswitch (8 Adet — halihazırda mevcut)
+10R 1/4W Direnç (1 Paket)
+33R 1/4W Direnç (1 Paket)
+330R 1/4W Direnç (1 Paket)
+3.5mm Stereo (TRS) Şase Tipi Dişi Jak (1–2 Adet)
+120 Parça Jumper Kablo Seti (1 Set)
+Timsah Ağızlı Krokodil Kablo Seti (1 Set)
+USB Dişi Tip A DIP Dönüştürücü (1 Adet — opsiyonel)
+Pedal Kutusu, Delikli Plaket (Pertinaks) ve İnce Kablo (Kutu içi montaj için)
